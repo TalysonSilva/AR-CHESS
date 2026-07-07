@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3373640920876225293}
   - component: {fileID: 6904885246460342359}
-  - component: {fileID: 7551692509281120956}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -46,26 +45,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Mirror::Mirror.NetworkIdentity
   sceneId: 0
-  _assetId: 3252919755
+  _assetId: 0
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
---- !u!114 &7551692509281120956
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3349619866490565570}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71aad22b35b848e408af7405617b0449, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TurnManager
-  syncDirection: 0
-  syncMode: 0
-  syncInterval: 0
-  textoTurno: {fileID: 0}
-  textoCronometro: {fileID: 0}
-  isHostTurn: 1
-  tempoRestante: 60

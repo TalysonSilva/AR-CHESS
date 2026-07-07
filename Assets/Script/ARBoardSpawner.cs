@@ -1,17 +1,20 @@
-using System.Collections.Generic;
+ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
-using UnityEngine.InputSystem; // Adicionamos a biblioteca do sistema novo!
+using Mirror;
 
 public class ARBoardSpawner : MonoBehaviour
 {
     [Header("Arraste o Prefab do Tabuleiro aqui")]
     public GameObject tabuleiroPrefab;
     
+    [Header("Arraste a Tela do QR Code aqui")]
+    public GameObject telaQRCode;
+
     private GameObject tabuleiroSpawnado;
     private ARRaycastManager raycastManager;
-    private List<ARRaycastHit> hits = new List<ARRaycastHit>();
+    private static List<ARRaycastHit> hits = new List<ARRaycastHit>();
 
     void Start()
     {
@@ -20,28 +23,44 @@ public class ARBoardSpawner : MonoBehaviour
 
     void Update()
     {
-        // Verifica se o celular tem uma tela de toque E se a pessoa tocou nela neste exato frame
-        if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+        if (!NetworkServer.active) return;
+        if (tabuleiroSpawnado != null) return;
+
+        bool tocouNaTela = false;
+        Vector2 posicaoDoToque = Vector2.zero;
+
+        // Captura o toque no celular
+        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
         {
-            // Pega as coordenadas X e Y de onde o dedo encostou na tela
-            Vector2 touchPosition = Touchscreen.current.primaryTouch.position.ReadValue();
+            tocouNaTela = true;
+            posicaoDoToque = Input.GetTouch(0).position;
+        }
+        // Captura extra de segurança (para o novo sistema de input)
+        else if (Input.GetMouseButtonDown(0))
+        {
+            tocouNaTela = true;
+            posicaoDoToque = Input.mousePosition;
+        }
 
-            // Dispara o raio a partir dessa posição do toque
-            if (raycastManager.Raycast(touchPosition, hits, TrackableType.PlaneWithinPolygon))
+        if (tocouNaTela)
+        {
+            // 1. O PRIMEIRO TOQUE: Se o QR Code estiver visível, apaga ele!
+            if (telaQRCode != null && telaQRCode.activeSelf)
             {
-                Pose hitPose = hits[0].pose; 
+                telaQRCode.SetActive(false);
+                return; // Para aqui e espera você tocar novamente depois
+            }
 
-                // Se o tabuleiro ainda não existe, cria um novo
-                if (tabuleiroSpawnado == null)
-                {
-                    tabuleiroSpawnado = Instantiate(tabuleiroPrefab, hitPose.position, hitPose.rotation);
-                    Debug.Log("Tabuleiro fixado na mesa!");
-                }
-                else
-                {
-                    // Se já existe, apenas move
-                    tabuleiroSpawnado.transform.position = hitPose.position;
-                }
+            // 2. O SEGUNDO TOQUE: Tenta achar o chão do ARCore
+            if (raycastManager.Raycast(posicaoDoToque, hits, TrackableType.PlaneWithinPolygon))
+            {
+                Pose hitPose = hits[0].pose;
+                
+                // Cria o tabuleiro (fininho) na mesa
+                tabuleiroSpawnado = Instantiate(tabuleiroPrefab, hitPose.position, hitPose.rotation);
+                
+                // Manda o tabuleiro pra rede!
+                NetworkServer.Spawn(tabuleiroSpawnado);
             }
         }
     }
