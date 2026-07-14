@@ -1,4 +1,4 @@
- using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
@@ -12,6 +12,9 @@ public class ARBoardSpawner : MonoBehaviour
     [Header("Arraste a Tela do QR Code aqui")]
     public GameObject telaQRCode;
 
+    [Header("Arraste o AR Plane Manager (XR Origin) aqui")]
+    public ARPlaneManager planeManager; // <-- Criamos a ponte para desligar a malha!
+
     private GameObject tabuleiroSpawnado;
     private ARRaycastManager raycastManager;
     private static List<ARRaycastHit> hits = new List<ARRaycastHit>();
@@ -19,6 +22,10 @@ public class ARBoardSpawner : MonoBehaviour
     void Start()
     {
         raycastManager = GetComponent<ARRaycastManager>();
+        
+        // Se você esquecer de arrastar na Unity, o código pega sozinho por segurança
+        if (planeManager == null) 
+            planeManager = GetComponent<ARPlaneManager>(); 
     }
 
     void Update()
@@ -29,13 +36,11 @@ public class ARBoardSpawner : MonoBehaviour
         bool tocouNaTela = false;
         Vector2 posicaoDoToque = Vector2.zero;
 
-        // Captura o toque no celular
         if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
         {
             tocouNaTela = true;
             posicaoDoToque = Input.GetTouch(0).position;
         }
-        // Captura extra de segurança (para o novo sistema de input)
         else if (Input.GetMouseButtonDown(0))
         {
             tocouNaTela = true;
@@ -44,24 +49,39 @@ public class ARBoardSpawner : MonoBehaviour
 
         if (tocouNaTela)
         {
-            // 1. O PRIMEIRO TOQUE: Se o QR Code estiver visível, apaga ele!
             if (telaQRCode != null && telaQRCode.activeSelf)
             {
                 telaQRCode.SetActive(false);
-                return; // Para aqui e espera você tocar novamente depois
+                return; 
             }
 
-            // 2. O SEGUNDO TOQUE: Tenta achar o chão do ARCore
             if (raycastManager.Raycast(posicaoDoToque, hits, TrackableType.PlaneWithinPolygon))
             {
                 Pose hitPose = hits[0].pose;
                 
-                // Cria o tabuleiro (fininho) na mesa
+                // Cria o tabuleiro
                 tabuleiroSpawnado = Instantiate(tabuleiroPrefab, hitPose.position, hitPose.rotation);
                 
-                // Manda o tabuleiro pra rede!
+                // Manda para a rede
                 NetworkServer.Spawn(tabuleiroSpawnado);
+
+                // --- MÁGICA: Esconde os pontinhos brancos do chão! ---
+                EsconderMalhaAR();
             }
+        }
+    }
+
+    void EsconderMalhaAR()
+    {
+        if (planeManager != null)
+        {
+            // Apaga todos os pontos que já foram desenhados na tela
+            foreach (var plane in planeManager.trackables)
+            {
+                plane.gameObject.SetActive(false);
+            }
+            // Desliga o "radar" para ele parar de procurar chão novo
+            planeManager.enabled = false;
         }
     }
 }

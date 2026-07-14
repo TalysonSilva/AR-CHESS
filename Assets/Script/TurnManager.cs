@@ -1,78 +1,72 @@
 using UnityEngine;
-using Mirror;
 using TMPro;
+using Mirror;
 
 public class TurnManager : NetworkBehaviour
 {
     [Header("Elementos de UI")]
-    public TextMeshProUGUI textoTurno;
-    public TextMeshProUGUI textoCronometro;
+    public TMP_Text textoTurno;
+    public TMP_Text textoCronometro;
 
-    [Header("Conexão com o Gerenciador")]
-    public GerenciadorDePartida gerenciador; // <-- Criamos a ponte para o novo script aqui!
-
-    [SyncVar(hook = nameof(AtualizarUI_Turno))]
-    public bool isHostTurn = true; 
-
-    [SyncVar(hook = nameof(AtualizarUI_Tempo))]
-    public int tempoRestante = 60;
-
-    private float timerInterno = 0f;
+    // A mágica acontece toda aqui agora, sem precisar de outro script!
+    [SyncVar] public bool partidaIniciada = false;
+    [SyncVar] public bool isHostTurn = true; 
+    [SyncVar] public float tempoRestante = 60f; 
 
     void Update()
     {
-        // O tempo SÓ DEVE passar no Servidor
-        if (isServer)
+        // 1. Atualiza os textos na tela para os jogadores
+        AtualizarUI();
+
+        // 2. O relógio só corre no Servidor se a partida tiver começado
+        if (!isServer || !partidaIniciada) return;
+
+        tempoRestante -= Time.deltaTime;
+
+        // Passa a vez automaticamente quando o tempo zera
+        if (tempoRestante <= 0)
         {
-            // SE AINDA ESTIVER NA FASE DE PREPARAÇÃO, O RELÓGIO DE XADREZ NÃO RODA!
-            if (gerenciador != null && gerenciador.faseDePreparacao)
-            {
-                return; // Para o código aqui, impedindo o tempo de cair.
-            }
+            PassarTurno();
+        }
+    }
 
-            timerInterno += Time.deltaTime;
+    void AtualizarUI()
+    {
+        if (textoCronometro != null)
+        {
+            textoCronometro.text = Mathf.CeilToInt(tempoRestante).ToString() + "s";
+        }
+
+        if (textoTurno != null)
+        {
+            bool minhaVez = (isServer && isHostTurn) || (!isServer && !isHostTurn);
             
-            if (timerInterno >= 1f)
+            if (minhaVez)
             {
-                tempoRestante--;
-                timerInterno = 0f;
-
-                if (tempoRestante <= 0)
-                {
-                    PassarTurno(); 
-                }
+                textoTurno.text = "SUA VEZ";
+                textoTurno.color = Color.green;
+            }
+            else
+            {
+                textoTurno.text = "VEZ DO OPONENTE";
+                textoTurno.color = Color.red;
             }
         }
+    }
+
+    [Server]
+    public void BotaoIniciarPartida()
+    {
+        partidaIniciada = true;
+        isHostTurn = true;
+        tempoRestante = 60f; 
     }
 
     [Server]
     public void PassarTurno()
     {
         isHostTurn = !isHostTurn;
-        tempoRestante = 60;
-        
-        Debug.Log("Turno passado! Agora é a vez do Host? " + isHostTurn);
-    }
-    
-    void AtualizarUI_Turno(bool turnoAntigo, bool turnoNovo)
-    {
-        if ((isServer && turnoNovo) || (!isServer && !turnoNovo))
-        {
-            textoTurno.text = "SUA VEZ!";
-            textoTurno.color = Color.green;
-        }
-        else
-        {
-            textoTurno.text = "VEZ DO OPONENTE";
-            textoTurno.color = Color.red;
-        }
-    }
-
-    void AtualizarUI_Tempo(int tempoAntigo, int tempoNovo)
-    {
-        if (textoCronometro != null)
-        {
-            textoCronometro.text = tempoNovo.ToString() + "s";
-        }
+        tempoRestante = 60f; 
+        Debug.Log("Turno Passado! Vez do Host? " + isHostTurn);
     }
 }
